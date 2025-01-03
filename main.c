@@ -45,7 +45,7 @@ char ehPossivelCima(Position posic, char mapa[][COLUNAS]);
 char ehPossivelBaixo(Position jogador, char mapa[][COLUNAS]);
 
 void moveJogador(Player *jogador, char mapa[][COLUNAS]);
-void moveInimigos(Enemy inimigo, char mapa[][COLUNAS]);
+void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS]);
 
 
 int main()
@@ -58,10 +58,10 @@ int main()
 
 
     InitWindow(LARGURA, ALTURA, "Bomberman Crakeado");//Inicializa janela, com certo tamanho e título
-    SetTargetFPS(60);// Ajusta a execução do jogo para 60 frames por segundo
+    SetTargetFPS(60);//Ajusta a execução do jogo para 60 frames por segundo
 
     leMapa(nomeArq, mapa, &jogador, inimigo); //Le o arquivo do mapa e cria a matriz de caracteres com base no arquivo texto do mapa; ja pega a posicao do jogador e dos inimigos
-                                              //Tambem atribui uma direcao inicial aleatoria aos inimigos (entre 0 e 3)
+    //Tambem atribui uma direcao inicial aleatoria aos inimigos (entre 0 e 3)
 
     while (!WindowShouldClose()) // Laço principal do jogo
     {
@@ -70,7 +70,7 @@ int main()
 
         //Movimento
         moveJogador(&jogador, mapa);
-      //moveInimigo
+        moveInimigos(inimigo, mapa);
 
         BeginDrawing();
         ClearBackground(DARKBLUE);
@@ -114,7 +114,7 @@ void leMapa(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo
                     inimigo[d].posic.y = i*20;
                     inimigo[d].direcao = rand()%4;
                     d++;
-                    //mapa[i][j] = ' '; //Fazer com que a posicao inicial dos inimigos nao fique "dura"
+                    mapa[i][j] = ' '; //Fazer com que a posicao inicial dos inimigos nao fique "dura"
                 }
 
                 else if(mapa[i][j] == 'J')
@@ -288,14 +288,15 @@ char ehPossivelCima (Position posic, char mapa[][COLUNAS])
 
 void moveJogador(Player *jogador, char mapa[][COLUNAS])
 {
-    //Movimento
+
     char veredito;
 
+    //EIXO X
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
     {
-        veredito = ehPossivelDireita((*jogador).posic, mapa); // Checa se eh possivel se movimentar no eixo x
+        veredito = ehPossivelDireita((*jogador).posic, mapa);
         if(veredito == 'V')
-            (*jogador).posic.x+=2;   //Parenteses por que o meu ponteiro eh pra jogador somente
+            (*jogador).posic.x+=2;   //Parenteses por que o ponteiro eh pra jogador somente
     }
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
     {
@@ -303,6 +304,7 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS])
         if(veredito == 'V')
             (*jogador).posic.x-=2;
     }
+    //EIXO Y
     if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))
     {
         veredito = ehPossivelCima((*jogador).posic, mapa); // Checa se eh possivel se movimentar no eixo y
@@ -317,43 +319,123 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS])
     }
 }
 
-void moveInimigos(Enemy inimigo, char mapa[][COLUNAS])
+//Faz a mudanca de direcao ser aleatoria (nao parece muito aleatorio!!!!!)
+void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS])
 {
-    int i=0;
-    char veredito;
-    srand(time(NULL));  //(0-direita)(1-esquerda)(2-cima)(3-baixo)
+    srand(time(NULL));
 
-   /* switch(inimigo[i].direcao)
-   {
+    for (int i = 0; i < 5; i++)
+    {
+
+        if (rand() % 5 == 0 /*&& (inimigo[i].posic.x == 0 && inimigo[i].posic.y == 0)*/)//20% de chance de mudar a direção sempre que o inimigo estiver alinhado com a matriz.
+        {                                                                               //Condicao de alinhamento comprometendo a aleatoriedade!
+            inimigo[i].direcao = rand() % 4; //(0-Direita)(1-Esquerda)(2-Cima)(3-Baixo)
+        }
+
+        //switch da movimentacao dos inimigos, cada caso eh uma direcao; tem q
+        switch (inimigo[i].direcao)
+        {
         case 0:
-                veredito = ehPossivelDireita(inimigo[i].posic, mapa);
-                if (veredito == 'V'){
-                    inimigo[i].posic.x+=2;
-                }
+            if (ehPossivelDireita(inimigo[i].posic, mapa) == 'V')
+            {
+                inimigo[i].posic.x += 1;
+            }
+            else
+            {
+                inimigo[i].direcao = rand() % 4; // Troca a direção se não for possível
+            }
+            break;
+        case 1:
+            if (ehPossivelEsquerda(inimigo[i].posic, mapa) == 'V')
+            {
+                inimigo[i].posic.x -= 1;
+            }
+            else
+            {
+                inimigo[i].direcao = rand() % 4;
+            }
+            break;
+        case 2:
+            if (ehPossivelCima(inimigo[i].posic, mapa) == 'V')
+            {
+                inimigo[i].posic.y -= 1;
+            }
+            else
+            {
+                inimigo[i].direcao = rand() % 4;
+            }
+            break;
+        case 3:
+            if (ehPossivelBaixo(inimigo[i].posic, mapa) == 'V')
+            {
+                inimigo[i].posic.y += 1;
+            }
+            else
+            {
+                inimigo[i].direcao = rand() % 4;
+            }
+            break;
+        }
+    }
+//Esse codigo deveria fazer a mudanca de direcao ao bater em uma parede. Por algum motivo torpe, NAO FUNCIONA?!!!!!!
+/*
+   int i;
+   char veredito;
+   srand(time(NULL));  //(0-direita)(1-esquerda)(2-cima)(3-baixo)
 
-}*/
+   for (int i=0; i<5; i++)
+   {
+       switch(inimigo[i].direcao)
+       {
+       case 0:
+           veredito = ehPossivelDireita(inimigo[i].posic, mapa);
+           if (veredito == 'V')
+           {
+               inimigo[i].posic.x+=1;
+           }
+           else
+           {
+               inimigo[i].direcao = rand()%4;
+           }
+           break;
+       case 1:
+           veredito = ehPossivelEsquerda(inimigo[i].posic, mapa);
+           if (veredito == 'V')
+           {
+               inimigo[i].posic.x-=1;
+           }
+           else
+           {
+               inimigo[i].direcao = rand()%4;
+           }
+           break;
+       case 2:
+           veredito = ehPossivelCima(inimigo[i].posic, mapa);
+           if (veredito == 'V')
+           {
+               inimigo[i].posic.y+=1;
+           }
+           else
+           {
+               inimigo[i].direcao = rand()%4;
+           }
+           break;
+       case 3:
+           veredito = ehPossivelBaixo(inimigo[i].posic, mapa);
+           if (veredito == 'V')
+           {
+               inimigo[i].posic.y-=1;
+           }
+           else
+           {
+               inimigo[i].direcao = rand()%4;
+           }
+           break;
 
+       }
 
-
-
-
-
+   }*/
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
