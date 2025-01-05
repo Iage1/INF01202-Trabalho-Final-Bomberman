@@ -26,6 +26,7 @@ typedef struct
     int nBomb;
     int points;
     int nChaves;
+    int direcao;
 } Player;
 
 typedef struct
@@ -42,10 +43,11 @@ void desenhaMapa(char mapa[][COLUNAS]);
 char ehPossivelDireita(Position posic, char mapa[][COLUNAS]);
 char ehPossivelEsquerda(Position posic, char mapa[][COLUNAS]);
 char ehPossivelCima(Position posic, char mapa[][COLUNAS]);
-char ehPossivelBaixo(Position jogador, char mapa[][COLUNAS]);
+char ehPossivelBaixo(Position posic, char mapa[][COLUNAS]);
 
 void moveJogador(Player *jogador, char mapa[][COLUNAS]);
 void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS]);
+void bomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[]);
 
 
 int main()
@@ -71,6 +73,9 @@ int main()
         //Movimento
         moveJogador(&jogador, mapa);
         moveInimigos(inimigo, mapa);
+        bomba(&jogador, mapa, inimigo);
+
+
 
         BeginDrawing();
         ClearBackground(DARKBLUE);
@@ -145,6 +150,8 @@ void desenhaMapa(char mapa[][COLUNAS])
                 DrawRectangle(i*20, j*20, LADO, LADO, LIGHTGRAY);
             else if(mapa[j][i] == 'B' || mapa[j][i] == 'K')
                 DrawRectangle(i*20, j*20, LADO, LADO, BROWN);
+            else if(mapa[j][i] == 'S' || mapa[j][i] == 'S')
+                DrawRectangle(i*20, j*20, LADO, LADO, ORANGE);
         }
     }
 }
@@ -297,12 +304,14 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS])
         veredito = ehPossivelDireita((*jogador).posic, mapa);
         if(veredito == 'V')
             (*jogador).posic.x+=2;   //Parenteses por que o ponteiro eh pra jogador somente
+            (*jogador).direcao = 0;
     }
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
     {
         veredito = ehPossivelEsquerda((*jogador).posic, mapa);
         if(veredito == 'V')
             (*jogador).posic.x-=2;
+            (*jogador).direcao = 1;
     }
     //EIXO Y
     if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))
@@ -310,12 +319,14 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS])
         veredito = ehPossivelCima((*jogador).posic, mapa); // Checa se eh possivel se movimentar no eixo y
         if(veredito == 'V')
             (*jogador).posic.y-=2;
+            (*jogador).direcao = 2;
     }
     if(IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))
     {
         veredito = ehPossivelBaixo((*jogador).posic, mapa);
         if(veredito == 'V')
             (*jogador).posic.y+=2;
+            (*jogador).direcao = 3;
     }
 }
 
@@ -437,5 +448,57 @@ void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS])
    }*/
 }
 
+void bomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[])
+{
+    int i, j;
+    char veredito;
 
+    if (IsKeyPressed(KEY_B))
+    {
+        switch ((*jogador).direcao)
+        {
+            case 0: //Direita
+                    //mapa[(*jogador).posic.x+20][(*jogador).posic.y] = 'B';
+                    veredito = ehPossivelDireita((*jogador).posic, mapa);
+                    if(veredito == 'V')
+                    {
+                        i = floor((*jogador).posic.x/20);
+                        j = floor((*jogador).posic.y/20);
+                        mapa[j][i+1] = 'S';
+                    }
+
+                    break;
+            case 1: //Esquerda
+                    //mapa[(*jogador).posic.x-20][(*jogador).posic.y] = 'B';
+                    veredito = ehPossivelEsquerda((*jogador).posic, mapa);
+                    if(veredito == 'V')
+                    {
+                        i = ceil((*jogador).posic.x/20);
+                        j = floor((*jogador).posic.y/20);
+                        mapa[j][i-1] = 'S';
+                    }
+                    break;
+            case 2: //Cima
+                    //mapa[(*jogador).posic.x][(*jogador).posic.y-20] = 'B';
+                    veredito = ehPossivelCima((*jogador).posic, mapa);
+                    if(veredito == 'V')
+                    {
+                        i = floor((*jogador).posic.x/20);
+                        j = ceil((*jogador).posic.y/20);
+                        mapa[j-1][i] = 'S';
+                    }
+                    break;
+            case 3: //Baixo
+                    //mapa[(*jogador).posic.x][(*jogador).posic.y+20] = 'B';
+                    veredito = ehPossivelBaixo((*jogador).posic, mapa);
+                     if(veredito == 'V')
+                    {
+                        i = floor((*jogador).posic.x/20);
+                        j = floor((*jogador).posic.y/20);
+                        mapa[j+1][i] = 'S';
+                    break;
+                    }
+        }
+    }
+}
 
