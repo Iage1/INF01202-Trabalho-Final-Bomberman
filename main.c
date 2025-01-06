@@ -24,6 +24,7 @@ typedef struct
     Position posic;
     int vida;
     int pontuacao;
+    int nBombas;
     int nChaves;
     int direcao;
 } Player;
@@ -37,7 +38,6 @@ typedef struct
 typedef struct
 {
     Position posic;
-    int num;
     int estadoAtiva;
     double tempo; //GetTime() é double
     int estadoExplosao;
@@ -60,6 +60,8 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
 void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int direcx, int direcy);
 void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS]);
 void desenhaPropagacao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy);
+
+void chave(Player *jogador, char mapa[][COLUNAS]);
 
 void displayInferior(Player *jogador, Bomb bomba[]);
 
@@ -90,10 +92,11 @@ int main()
         //Desenha o mapa com base no arquivo
         desenhaMapa(mapa);
 
-        //Movimento e ações
+        //Movimento e mecanicas
         moveJogador(&jogador, mapa);
         moveInimigos(inimigo, mapa);
         plantaBomba(&jogador, mapa, inimigo, bomba);
+        chave(&jogador, mapa);
 
 
 
@@ -153,6 +156,7 @@ void leMapa(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo
                     (*jogador).vida = 3;
                     (*jogador).pontuacao = 0;
                     (*jogador).nChaves = 0;
+                    (*jogador).nBombas = 3;
                     (*jogador).direcao = 0;
 
                 }
@@ -178,8 +182,10 @@ void desenhaMapa(char mapa[][COLUNAS])
                 DrawRectangle(i*20, j*20, LADO, LADO, DARKGRAY);
             else if(mapa[j][i] == 'B' || mapa[j][i] == 'K')
                 DrawRectangle(i*20, j*20, LADO, LADO, BROWN);
-            else if(mapa[j][i] == 'S' || mapa[j][i] == 'S')
+            else if(mapa[j][i] == 'S')
                 DrawRectangle(i*20, j*20, LADO, LADO, ORANGE);
+            else if (mapa[j][i] == 'C')
+                DrawRectangle(i*20, j*20, LADO, LADO, GOLD);
         }
     }
 }
@@ -196,14 +202,14 @@ char ehPossivelDireita(Position posic, char mapa[][COLUNAS])
 
     if(posic.y % 20 == 0)
     {
-        if(mapa[fly][flx+1] == ' ')
+        if(mapa[fly][flx+1] == ' ' || mapa[fly][flx+1] == 'C')
             veredito = 'V';
         else
             veredito = 'F';
     }
     else
     {
-        if(mapa[fly][flx+1] == ' ' && mapa[fly+1][flx+1] == ' ')
+        if((mapa[fly][flx+1] == ' ' || mapa[fly][flx+1] == 'C') && (mapa[fly+1][flx+1] == ' ' || mapa[fly+1][flx+1] == 'C'))
             veredito = 'V';
         else
             veredito = 'F';
@@ -223,28 +229,28 @@ char ehPossivelEsquerda (Position posic, char mapa[][COLUNAS])
 
     if(posic.y % 20 == 0 && posic.x % 20 == 0)
     {
-        if(mapa[fly][clx-1] == ' ')
+        if(mapa[fly][clx-1] == ' ' || mapa[fly][clx-1] == 'C')
             veredito = 'V';
         else
             veredito = 'F';
     }
     else if(posic.y % 20 != 0 && posic.x % 20 == 0)
     {
-        if(mapa[fly][clx-1] == ' ' && mapa[fly+1][clx-1] == ' ')
+        if((mapa[fly][clx-1] == ' ' || mapa[fly][clx-1] == 'C') && (mapa[fly+1][clx-1] == ' ' || mapa[fly+1][clx-1] == 'C'))
             veredito = 'V';
         else
             veredito = 'F';
     }
     else if(posic.y % 20 == 0 && posic.x % 20 != 0)
     {
-        if(mapa[fly][clx] == ' ')
+        if(mapa[fly][clx] == ' ' || mapa[fly][clx] == 'C')
             veredito = 'V';
         else
             veredito = 'F';
     }
     else
     {
-        if(mapa[fly][clx] == ' ' && mapa[fly+1][clx] == ' ')
+        if((mapa[fly][clx] == ' ' || mapa[fly][clx] == 'C') && (mapa[fly+1][clx] == ' ' || mapa[fly+1][clx] == 'C'))
             veredito = 'V';
         else
             veredito = 'F';
@@ -264,14 +270,14 @@ char ehPossivelBaixo(Position posic, char mapa[][COLUNAS])
 
     if(posic.x % 20 == 0)
     {
-        if(mapa[fly+1][flx] == ' ')
+        if(mapa[fly+1][flx] == ' ' || mapa[fly+1][flx] == 'C')
             veredito = 'V';
         else
             veredito = 'F';
     }
     else
     {
-        if(mapa[fly+1][flx] == ' ' && mapa[fly+1][flx+1] == ' ')
+        if((mapa[fly+1][flx] == ' ' || mapa[fly+1][flx] == 'C') && (mapa[fly+1][flx+1] == ' ' || mapa[fly+1][flx+1] == 'C'))
             veredito = 'V';
         else
             veredito = 'F';
@@ -291,33 +297,32 @@ char ehPossivelCima (Position posic, char mapa[][COLUNAS])
 
     if(posic.x % 20 == 0 && posic.y % 20 == 0)
     {
-        if(mapa[cly-1][flx] == ' ')
+        if(mapa[cly-1][flx] == ' ' || mapa[cly-1][flx] == 'C')
             veredito = 'V';
         else
             veredito = 'F';
     }
     else if(posic.x % 20 != 0 && posic.y % 20 == 0)
     {
-        if(mapa[cly-1][flx] == ' ' && mapa[cly-1][flx+1] == ' ')
+        if((mapa[cly-1][flx] == ' ' || mapa[cly-1][flx] == 'C') && (mapa[cly-1][flx+1] == ' ' || mapa[cly-1][flx+1] == 'C'))
             veredito = 'V';
         else
             veredito = 'F';
     }
     else if(posic.x % 20 == 0 && posic.y % 20 != 0)
     {
-        if(mapa[cly][flx] == ' ')
+        if(mapa[cly][flx] == ' ' || mapa[cly][flx] == 'C')
             veredito = 'V';
         else
             veredito = 'F';
     }
     else
     {
-        if(mapa[cly][flx] == ' '  && mapa[cly][flx+1] == ' ')
+        if((mapa[cly][flx] == ' ' || mapa[cly][flx] == 'C')  && (mapa[cly][flx+1] == ' ' || mapa[cly][flx+1] == 'C'))
             veredito = 'V';
         else
             veredito = 'F';
     }
-
     return veredito;
 }
 
@@ -434,6 +439,7 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
                 bomba[k].posic.x = (*jogador).posic.x;
                 bomba[k].posic.y = (*jogador).posic.y;
                 bomba[k].estadoAtiva = 1;
+                (*jogador).nBombas--;
                 bomba[k].tempo = GetTime();  //Registra o tempo em que a bomba foi plantada
                 mapa[bomba[k].posic.y / 20][bomba[k].posic.x / 20] = 'S';
                 break;
@@ -463,6 +469,7 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
                 bomba[k].estadoExplosao = 1;
                 bomba[k].tempoExplosao = GetTime(); //Registra o tempo do comeco da explosao
                 bomba[k].estadoAtiva = 0;
+                (*jogador).nBombas++;
             }
         }
     }
@@ -489,7 +496,7 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
         }
         else if (mapa[ny][nx] == 'K')
         {
-            mapa[ny][nx] = ' ';   //Condicao especial para as chaves
+            mapa[ny][nx] = 'C';   //Condicao especial para as chaves
             break;
         }
 
@@ -561,6 +568,8 @@ void displayInferior(Player *jogador, Bomb bomba[])
     char displayBomba[20] = "Bombas: 0";
     char displayPontuacao[20] = "Pontuacao: 0";
 
+    printf("%d\n",(*jogador).nBombas);
+
     //Como fazer pra imprimir os valores?
     (*jogador).vida = 1;
     // vida[7] = printf("%d", (*jogador).vida);
@@ -570,3 +579,21 @@ void displayInferior(Player *jogador, Bomb bomba[])
     DrawText(displayPontuacao, 750, 525, 40, WHITE);
 }
 
+
+void chave(Player *jogador, char mapa[][COLUNAS])
+{
+    int x = (*jogador).posic.x/20;
+    int y = (*jogador).posic.y/20;
+
+    if (mapa[y][x] == 'C')
+    {
+        mapa[y][x] = ' ';
+        (*jogador).nChaves++;
+        printf("%d", (*jogador).nChaves);
+    }
+
+    if ((*jogador).nChaves == 5)
+    {
+
+    }
+}
