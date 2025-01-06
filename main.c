@@ -38,8 +38,10 @@ typedef struct
 {
     Position posic;
     int num;
-    int estado;
+    int estadoAtiva;
     double tempo; //GetTime() é double
+    int estadoExplosao;
+    double tempoExplosao;
 } Bomb;
 
 void leMapa(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[]);
@@ -53,10 +55,13 @@ char ehPossivelBaixo(Position posic, char mapa[][COLUNAS]);
 
 void moveJogador(Player *jogador, char mapa[][COLUNAS]);
 void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS]);
+
 void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[]);
+void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int direcx, int direcy);
+void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS]);
+void desenhaPropagacao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy);
 
 void displayInferior(Player *jogador, Bomb bomba[]);
-
 
 int main()
 {
@@ -77,7 +82,7 @@ int main()
     //Atribui estado 0 as bombas (inativas)
     for (int k=0; k<3; k++)
     {
-        bomba[k].estado = 0;
+        bomba[k].estadoAtiva = 0;
     }
 
     while (!WindowShouldClose()) // Laço principal do jogo
@@ -90,6 +95,8 @@ int main()
         moveInimigos(inimigo, mapa);
         plantaBomba(&jogador, mapa, inimigo, bomba);
 
+
+
         BeginDrawing();
         ClearBackground(DARKBLUE);
 
@@ -99,6 +106,8 @@ int main()
         {
             DrawRectangle(inimigo[i].posic.x, inimigo[i].posic.y, LADO, LADO, RED);
         }
+        //Desenha a explosao das bombas
+        desenhaExplosao(bomba, mapa);
         //Desenha o display inferior
         displayInferior(&jogador, bomba);
         EndDrawing();
@@ -357,13 +366,14 @@ void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS])
 
     for (int i = 0; i < 5; i++)
     {
-
-        if (rand() % 5 == 0 )//20% de chance de mudar a direção sempre que o inimigo estiver alinhado com a matriz.
+        if (inimigo[i].posic.x % LADO == 0 && inimigo[i].posic.y % LADO == 0)
         {
-            //Condicao de alinhamento comprometendo a aleatoriedade!
-            inimigo[i].direcao = rand() % 4; //(0-Direita)(1-Esquerda)(2-Cima)(3-Baixo)
+            if (rand() % 5 == 0 )//20% de chance de mudar a direção sempre que o inimigo estiver alinhado com a matriz.
+            {
+                //Condicao de alinhamento comprometendo a aleatoriedade!
+                inimigo[i].direcao = rand() % 4; //(0-Direita)(1-Esquerda)(2-Cima)(3-Baixo)
+            }
         }
-
         //switch da movimentacao dos inimigos, cada caso eh uma direcao; tem q
         switch (inimigo[i].direcao)
         {
@@ -411,118 +421,138 @@ void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS])
     }
 }
 
-//Funcao determina posicionamento da bomba, detona e faz alteracoes no mapa.
+
+// Função principal para manipular bombas
 void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[])
 {
-    int i = ((*jogador).posic.x);
-    int j = ((*jogador).posic.y);
-    int k;
-
-
-    //Planta a bomba
     if (IsKeyPressed(KEY_B))
     {
-        for (k=0; k<3; k++)
+        for (int k = 0; k < 3; k++)
         {
-            //Percorre as bombas até achar uma inativa (estado 0)
-            if (bomba[k].estado == 0)
+            if (bomba[k].estadoAtiva == 0)   //Percorre as bombas até encontrar uma inativa
             {
-                //Planta a bomba
-                bomba[k].posic.x = i;
-                bomba[k].posic.y = j;
-                bomba[k].estado = 1;
-                bomba[k].tempo = GetTime(); //Registra o momento em que a bomba é plantada (em s)
-                mapa[bomba[k].posic.y/20][bomba[k].posic.x/20] = 'S';
+                bomba[k].posic.x = (*jogador).posic.x;
+                bomba[k].posic.y = (*jogador).posic.y;
+                bomba[k].estadoAtiva = 1;
+                bomba[k].tempo = GetTime();  //Registra o tempo em que a bomba foi plantada
+                mapa[bomba[k].posic.y / 20][bomba[k].posic.x / 20] = 'S';
                 break;
             }
         }
     }
 
-    //Explosao
-    int z, d;
-    for (k=0; k<3; k++)
-    {
-        //Percorre as bombas até achar uma ativa (estado 1)
-        if (bomba[k].estado == 1)
-        {
-            double temp = GetTime(); //variavel pra pegar o tempo atual
 
-            if (temp - bomba[k].tempo >= 3)  //GetTime() fica pegando o tempo atual. Quando a diferenca entre o tempo atual e o momento em que a bomba
-                                             //foi plantada for igual a 3, 3 segundos se passaram e a bomba explode.
+    for (int k = 0; k < 3; k++)
+    {
+        if (bomba[k].estadoAtiva == 1)  //Percorre as bombas até achar uma ativa
+        {
+            double tempAtual = GetTime();  //Pega o tempo atual
+            if (tempAtual - bomba[k].tempo >= 3)   //Quando o tempoAtual passa em 3 segundos o tempo em que a bomba foi plantada, explode
             {
                 int x = bomba[k].posic.x/20;
                 int y = bomba[k].posic.y/20;
 
-                for (z=0; z<5; z++) //explosao da bomba abrange 100 pixels (5 células)
-                {
-                    //Direita
-                    if (mapa[y][x+z] != 'W')
-                    {
-                        mapa[y][x+z] = ' ';
-                    }
-                    else   //se chegar em uma parede, o efeito da bomba não a ultrapassa
-                    {
-                        break;
-                    }
-                }
-                for (z=0; z<5; z++)
-                {
-                    //Esquerda
-                    if (mapa[y][x-z] != 'W')
-                    {
-                        mapa[y][x-z] = ' ';
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                for (z=0; z<5; z++)
-                {
-                    //Cima
-                    if (mapa[y-z][x] != 'W')
-                    {
-                        mapa[y-z][x] = ' ';
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                for (z=0; z<5; z++)
-                {
-                    //Baixo
-                    if (mapa[y+z][x] != 'W')
-                    {
-                        mapa[y+z][x] = ' ';
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                for (d = 0; d < 5; d++)
-                {
-                    if ((inimigo[d].posic.x / LADO == x && inimigo[d].posic.y / LADO == y) ||
-                            (inimigo[d].posic.x / LADO == x + 1 && inimigo[d].posic.y / LADO == y) ||
-                            (inimigo[d].posic.x / LADO == x - 1 && inimigo[d].posic.y / LADO == y) ||
-                            (inimigo[d].posic.x / LADO == x && inimigo[d].posic.y / LADO == y + 1) ||
-                            (inimigo[d].posic.x / LADO == x && inimigo[d].posic.y / LADO == y - 1))
-                    {
-                        inimigo[d].posic.x = -1; // Remover inimigo
-                        inimigo[d].posic.y = -1;
-                    }
-                }
+                propagaExplosao(mapa, inimigo, x, y, 1, 0); // Direita (x+1)
+                propagaExplosao(mapa, inimigo, x, y, -1, 0); // Esquerda (x-1)
+                propagaExplosao(mapa, inimigo, x, y, 0, -1); // Cima (y-1)
+                propagaExplosao(mapa, inimigo, x, y, 0, 1); // Baixo (y+1)
 
+                mapa[y][x] = ' '; // Remove a bomba do mapa
 
-                mapa [y][x] = ' ';       // Apaga a bomba
-                bomba[k].estado = 0;    //Retorna a bomba ao estado 0
+                //Inicia as variaveis necessarias para a execucao da funcao desenhaExplosao
+                bomba[k].estadoExplosao = 1;
+                bomba[k].tempoExplosao = GetTime(); //Registra o tempo do comeco da explosao
+                bomba[k].estadoAtiva = 0;
             }
         }
     }
+}
 
 
+// Função para propagar a explosão em uma direcao
+void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int direcx, int direcy)
+{
+    for (int z = 0; z < 3; z++)   //Bomba com alcance de 100 pixels -> 3 pixels pra todas as direcoes (incluindo o do meio)
+    {
+        //Celulas correspondentes do mapa que vao sendo incrementadas dentro do loop
+        int nx = x + (z*direcx);
+        int ny = y + (z*direcy);
 
+        if (mapa[ny][nx] == 'W')
+        {
+             break;    //Nao permite a propagacao apos bater em uma parede
+        }
+        else if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B')
+        {
+            mapa[ny][nx] = ' ';        //Se a bomba enconstar em um objeto, quebra ele e para a propagacao
+            break;
+        }
+        else if (mapa[ny][nx] == 'K')
+        {
+            mapa[ny][nx] = ' ';   //Condicao especial para as chaves
+            break;
+        }
+
+        // Atualiza inimigos atingidos
+        for (int i = 0; i < 5; i++)
+        {
+            if (inimigo[i].posic.x/20 == nx && inimigo[i].posic.y/20 == ny) //Se o inimigo estiver dentro das coordenadas de propagacao
+            {
+                inimigo[i].posic.x = -1; //Joga o inimigo pra fora do mapa
+                inimigo[i].posic.y = -1;
+            }
+        }
+    }
+}
+
+
+// Função para desenhar a explosão
+void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS])
+{
+    for (int k = 0; k < 3; k++)
+    {
+        if (bomba[k].estadoExplosao == 1)
+        {
+            double duracaoExplosao = GetTime() - bomba[k].tempoExplosao;
+            int x = bomba[k].posic.x/20;
+            int y = bomba[k].posic.y/20;
+
+            // Propaga o desenho da explosão em todas as direções
+            desenhaPropagacao(mapa, x, y, 1, 0); // Direita
+            desenhaPropagacao(mapa, x, y, -1, 0); // Esquerda
+            desenhaPropagacao(mapa, x, y, 0, -1); // Cima
+            desenhaPropagacao(mapa, x, y, 0, 1); // Baixo
+
+            if (duracaoExplosao >= 0.3)
+            {
+                bomba[k].estadoExplosao = 0; // Termina a explosão
+            }
+        }
+    }
+}
+
+// Funcao para desenhar cada direcao da explosao
+void desenhaPropagacao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy)
+{
+    for (int z = 0; z < 3; z++)
+    {
+        int nx = x + (z*direcx);
+        int ny = y + (z*direcy);
+
+        if (mapa[ny][nx] == 'W')
+        {
+            break; //Se bate em uma parede, nao continua o desenho
+        }
+        else if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B' || mapa[ny][nx] == 'K')
+        {
+            //DrawRectangle(nx*20, ny*20, 20, 20, MAGENTA);   //Se bate em um objeto, quebra ele e para o desenho
+            break;                                              //Por algum motivo, nao funciona quando a proxima celula eh um espaco vazio
+        }
+        else
+        {
+            DrawRectangle(nx*20, ny*20, 20, 20, MAGENTA); //Espaco vazio continua a propagacao do desenho
+        }
+    }
 }
 
 void displayInferior(Player *jogador, Bomb bomba[])
@@ -539,3 +569,4 @@ void displayInferior(Player *jogador, Bomb bomba[])
     DrawText(displayBomba, 375, 525, 40, WHITE);
     DrawText(displayPontuacao, 750, 525, 40, WHITE);
 }
+
