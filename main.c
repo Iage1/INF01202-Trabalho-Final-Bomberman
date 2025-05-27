@@ -15,6 +15,7 @@
 #define MAXBOMBA 3
 #define NINIMIGOS 5
 #define TAMTEXTO 40
+#define NMAPAS 5
 
 
 typedef struct
@@ -51,10 +52,10 @@ typedef struct
 
 typedef struct{
     Player jogador;
-    Enemy inimigo;
-    Bomb bomba;
+    Enemy inimigo[NINIMIGOS];
+    Bomb bomba[MAXBOMBA];
     char mapa[LINHAS][COLUNAS];
-    char nomeArq;
+    char nomeArq[50];
 }Save;
 
 void leMapa(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[]);
@@ -74,13 +75,15 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
 void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS]);
 void desenhaPropagacao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy);
 
-void chave(Player *jogador, char mapa[][COLUNAS]);
+void chave(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[], int *pausa);
+void morte(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], int *pausa);
 
 void displayInferior(Player *jogador, Bomb bomba[]);
 
 void menu(int *pausa, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], char *nome_arq, Save *optimus);
 void novoJogo(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], int *pausa);
 void saveGame(char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], char *nome_arq, Save *optimus);
+void loadGame(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], int *pausa, Save *optimus);
 
 
 
@@ -92,7 +95,7 @@ int main()
     Enemy inimigo[NINIMIGOS];
     Bomb bomba[MAXBOMBA];
     char mapa[LINHAS][COLUNAS];
-    char nomeArq[] = "Mapa01.txt";
+    char nomeArq[] = "Mapa1.txt";
     int pausa = 0;
     Save optimus;
 
@@ -122,7 +125,8 @@ int main()
         moveJogador(&jogador, mapa);
         moveInimigos(inimigo, mapa, &jogador);
         plantaBomba(&jogador, mapa, inimigo, bomba);
-        chave(&jogador, mapa);
+        chave(&jogador, mapa, inimigo, bomba, &pausa);
+        morte(nomeArq, mapa, &jogador, inimigo, bomba, &pausa);
         }
 
         BeginDrawing();
@@ -590,6 +594,12 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
         }
 
     }
+        //Nao deixa a pontuacao ficar negativa
+        if (jogador->pontuacao < 0)
+        {
+        jogador->pontuacao = 0;
+        }
+
 }
 
 
@@ -656,15 +666,15 @@ void displayInferior(Player *jogador, Bomb bomba[])
     DrawText(displayVida, 30, 525, TAMTEXTO, WHITE);
     DrawText(displayBomba, 375, 525, TAMTEXTO, WHITE);
     DrawText(displayPontuacao, 750, 525, TAMTEXTO, WHITE);
-    DrawRectangle(0, 575, 1200, 30, BLACK);
-    DrawRectangle(0, 200, 20, 400, BLACK);
-    DrawRectangle(1180, 200, 20, 400, BLACK);
+
 }
 
-void chave(Player *jogador, char mapa[][COLUNAS])
+void chave(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[], int *pausa)
 {
     int x = jogador->posic.x/LADO;
     int y = jogador->posic.y/LADO;
+    char proxMapa[50];
+    int k=2;
 
     if (mapa[y][x] == 'C')
     {
@@ -673,10 +683,37 @@ void chave(Player *jogador, char mapa[][COLUNAS])
         printf("%d", jogador->nChaves);
     }
 
-    //Carrega procimo mapa
-    if (jogador->nChaves == 5)
-    {
+    //Carrega proximo mapa
+        if (jogador->nChaves == 5)
+        {
+            *pausa = 1;
+            //variaveis temporarias pra guardar a vida e pontuacao do jogador pra proxima fase
+            int vidaTemp = jogador->vida;
+            int pontuacaoTemp = jogador->pontuacao;
 
+            sprintf(proxMapa, "Mapa%d.txt", k);
+            leMapa(proxMapa, mapa, jogador, inimigo);
+            for (int i = 0; i<MAXBOMBA; i++)
+            {
+                bomba[i].estadoAtiva = 0;
+                bomba[i].estadoExplosao = 0;
+                bomba[i].tempo = 0;
+                bomba[i].tempoExplosao = 0;
+            }
+            *pausa = 0;
+            k++;
+            jogador->vida = vidaTemp;
+            jogador->pontuacao = pontuacaoTemp;
+     }
+}
+
+void morte(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], int *pausa)
+{
+    if ((*jogador).vida <= 0)
+    {
+        *pausa = 1;
+        novoJogo(nome_arq, mapa, jogador, inimigo, bomba, pausa);
+        *pausa = 0;
     }
 }
 
@@ -695,8 +732,8 @@ void menu(int *pausa, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bo
 
         if(IsKeyPressed(KEY_N))
             opcao = 'N';
-        /*if(IsKeyPressed(KEY_C))
-            opcao = 'C';*/
+        if(IsKeyPressed(KEY_C))
+            opcao = 'C';
         if(IsKeyPressed(KEY_S))
             opcao = 'S';
         if(IsKeyPressed(KEY_Q))
@@ -709,9 +746,9 @@ void menu(int *pausa, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bo
             novoJogo(nome_arq, mapa, jogador, inimigo, bomba, pausa);// Reseta todas as informações para como estão no arquivo, ou seja, como eram originalmente.
             *pausa = 0;
             break;
-        /*case 'C':
-            loadGame();
-            break;*/
+        case 'C':
+            loadGame(nome_arq, mapa, jogador, inimigo, bomba, pausa, optimus);
+            break;
         case 'S':
             saveGame(mapa, jogador, inimigo, bomba, nome_arq, optimus);
             *pausa = 0;
@@ -739,24 +776,97 @@ void novoJogo(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimi
     *pausa = 0;
 }
 
+//Salva o jogo em um arquivo binário, a partir da struct SAVE
 void saveGame(char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], char *nome_arq, Save *optimus)
 {
 
-    char nomeArqB[50];
-    int contador = 1;
+    char nomeArqB[] = "Save.bin";
     FILE *arq;
 
-    sprintf(nomeArqB, "Save%d", contador);
+    //Copia os dados atuais pra struct Save
+    for (int i = 0; i < LINHAS; i++) {
+        for (int j = 0; j < COLUNAS; j++) {
+            optimus->mapa[i][j] = mapa[i][j];
+        }
+    }
 
+     optimus->jogador = *jogador;
+
+    for (int i = 0; i < NINIMIGOS; i++) {
+        optimus->inimigo[i] = inimigo[i];
+    }
+
+    for (int i = 0; i < MAXBOMBA; i++) {
+        optimus->bomba[i] = bomba[i];
+    }
+
+    strcpy(optimus->nomeArq, nome_arq);
+
+
+
+    //Escreve no arquivo
     arq = fopen(nomeArqB, "wb");
-    if(arq == NULL)
+    if(arq == NULL){
         printf("Erro ao gerar arquivo salvo");
+        return;
+    }
     else{
-        fwrite(&optimus, sizeof(Save), 1, arq);
+        fwrite(optimus, sizeof(Save), 1, arq);
         if(ferror(arq))
             printf("Erro ao gerar/escrever no arquivo binario");
         fclose(arq);
     }
 
+
+}
+
+void loadGame(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], int *pausa, Save *optimus)
+{
+     // Pausar o jogo
+    *pausa = 1;
+
+    // Nome do arquivo de salvamento
+    char nomeArqB[] = "Save.bin";
+
+    // Abrir arquivo para leitura binária
+    FILE *arq = fopen(nomeArqB, "rb");
+    if (arq == NULL) {
+        perror("Erro ao abrir o arquivo para carregar");
+        *pausa = 0;
+        return;
+    }
+
+    // Ler a struct Save do arquivo
+    if (fread(optimus, sizeof(Save), 1, arq) != 1) {
+        perror("Erro ao carregar o jogo");
+        fclose(arq);
+        *pausa = 0;
+        return;
+    }
+    fclose(arq);
+
+    // Restaurar os dados nas variáveis do jogo (campo por campo)
+    for (int i = 0; i < LINHAS; i++) {
+        for (int j = 0; j < COLUNAS; j++) {
+            mapa[i][j] = optimus->mapa[i][j];
+        }
+    }
+
+    *jogador = optimus->jogador; // Restaurar jogador diretamente
+
+    // Restaurar inimigos
+    for (int i = 0; i < NINIMIGOS; i++) {
+        inimigo[i] = optimus->inimigo[i];
+    }
+
+    // Restaurar bombas
+    for (int i = 0; i < MAXBOMBA; i++) {
+        bomba[i] = optimus->bomba[i];
+    }
+
+    printf("Jogo carregado com sucesso do arquivo '%s'.\n", nomeArqB);
+
+    // Retomar o jogo
+    *pausa = 0;
 
 }
