@@ -36,6 +36,8 @@ typedef struct
     int nChaves;
     int direcao;
     double delay;
+    int bombx;
+    int bomby;
 } Player;
 
 typedef struct
@@ -48,7 +50,7 @@ typedef struct
 {
     Position posic;
     int estadoAtiva;
-    double tempo; //GetTime() � double
+    double tempo; //GetTime() é double
     int estadoExplosao;
     double tempoExplosao;
 } Bomb;
@@ -76,9 +78,10 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS]);
 void moveInimigos(Enemy inimigo[], char mapa[][COLUNAS], Player *jogador);
 
 void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[]);
-void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int direcx, int direcy, Player *jogador);
+void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[], int x, int y, int direcx, int direcy, Player *jogador);
 void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS]);
 void desenhaPropagacao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy);
+void aplicaDestruicao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy);
 
 void chave(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[], int *pausa);
 void morte(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[], Bomb bomba[], int *pausa);

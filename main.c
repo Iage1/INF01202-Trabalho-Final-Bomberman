@@ -10,13 +10,18 @@ int main()
     int pausa = 0;
     Save optimus;
 
-    srand(time(NULL));
+    srand(time(NULL));  //Seed de tempo
+
+    jogador.bombx = -40; //Inicializa memória da bomba fora do mapa 
+    jogador.bomby = -40;
     
     InitWindow(LARGURA, ALTURA, "Bomberman");//Inicializa janela, com certo tamanho e t�tulo
     SetTargetFPS(60);//Ajusta a execu��o do jogo para 60 frames por segundo
 
     leMapa(nomeArq, mapa, &jogador, inimigo); //Le o arquivo do mapa e cria a matriz de caracteres com base no arquivo texto do mapa
     //Tambem atribui os dados iniciais para os inimigos e jogador.
+
+
 
     //Atribui estado 0 as bombas (inativas)
     for (int k=0; k<3; k++)

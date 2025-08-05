@@ -210,6 +210,11 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS])
 
     char veredito;
 
+    if (jogador->bombx != -40 && jogador->bomby != -40) // Se a bomba foi plantada, substitui o mapa com um espaço vazio para permitir movimentação temporária
+    {
+        mapa[jogador->bomby][jogador->bombx] = ' ';
+    }
+
     //EIXO X
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
     {
@@ -239,6 +244,18 @@ void moveJogador(Player *jogador, char mapa[][COLUNAS])
         if(veredito == 'V')
             jogador->posic.y+=2;
         jogador->direcao = 3;
+    }
+
+    //Verificação de coordenada da bomba
+    if (jogador->bombx != -40 && jogador->bomby != -40) // Restauração da solidez da bomba após jogador sair do bloco da bomba
+    {   
+        mapa[jogador->bomby][jogador->bombx] = 'S';
+        
+        if (floor(jogador->posic.x / LADO) != jogador->bombx || floor(jogador->posic.y / LADO) != jogador->bomby)
+        {
+            jogador->bombx = -40;
+            jogador->bomby = -40;
+        }
     }
 
 }
@@ -339,6 +356,9 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
                 bomba[k].estadoAtiva = 1;
                 jogador->nBombas--;
                 bomba[k].tempo = GetTime();  //Registra o tempo em que a bomba foi plantada
+                
+                jogador->bombx = bomba[k].posic.x / LADO;    //Guarda o bloco onde a bomba foi plantada 
+                jogador->bomby = bomba[k].posic.y / LADO;                
                 mapa[bomba[k].posic.y / LADO][bomba[k].posic.x / LADO] = 'S';
                 break;
             }
@@ -361,10 +381,10 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
 
                 seguroVida = (*jogador).vida;
                 seguroPontuacao = (*jogador).pontuacao;
-                propagaExplosao(mapa, inimigo, x, y, 1, 0, jogador); // Direita (x+1)      /*
-                propagaExplosao(mapa, inimigo, x, y, -1, 0, jogador); // Esquerda (x-1)                 PORQUE JOGADOR NAO LEVA &????
-                propagaExplosao(mapa, inimigo, x, y, 0, -1, jogador); // Cima (y-1)
-                propagaExplosao(mapa, inimigo, x, y, 0, 1, jogador); // Baixo (y+1)                                                     */
+                propagaExplosao(mapa, inimigo, bomba, x, y, 1, 0, jogador); // Direita (x+1)      
+                propagaExplosao(mapa, inimigo, bomba,  x, y, -1, 0, jogador); // Esquerda (x-1)                 
+                propagaExplosao(mapa, inimigo, bomba, x, y, 0, -1, jogador); // Cima (y-1)
+                propagaExplosao(mapa, inimigo, bomba, x, y, 0, 1, jogador); // Baixo (y+1)                                                     
 
                 //Mecanismo pro jogador nao sofrer mais de uma perda de vida ou de pontuacao por explosao (pixel do meio pode dar 4 de dano)
                 if (seguroVida - (*jogador).vida > 1)
@@ -387,7 +407,7 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
 
 
 //Propaga a explosao em uma direcao
-void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int direcx, int direcy, Player *jogador)
+void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], Bomb bomba[], int x, int y, int direcx, int direcy, Player *jogador)
 {
     for (int z = 0; z < MAXBOMBA; z++)   //Bomba com alcance de 100 pixels -> 3 pixels pra todas as direcoes (incluindo o do meio)
     {
@@ -404,7 +424,7 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
         {
             break;
         }
-        
+
         //Para a deteccao de inimigos, pra elimina-los mesmo com um pixel encostando na explosao, uso da funcao CheckCollisionRecs, do raylib
 
         Rectangle retanguloExplosao = {nx*LADO, ny*LADO, LADO, LADO}; //Retangulo da explosao: mesmos elementos do DrawRectangle()
@@ -439,7 +459,7 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
 }
 
 // Aplica a destruição no mapa ao final da explosão
-void AplicaDestruicao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy)
+void aplicaDestruicao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy)
 {
     for (int z = 0; z < MAXBOMBA; z++)
     {
@@ -487,10 +507,10 @@ void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS])
                 bomba[k].estadoExplosao = 0; // Termina a explosao
 
                 // Aplica a explosão
-                AplicaDestruicao(mapa, x, y, 1, 0); // Direita
-                AplicaDestruicao(mapa, x, y, -1, 0); // Esquerda
-                AplicaDestruicao(mapa, x, y, 0, -1); // Cima
-                AplicaDestruicao(mapa, x, y, 0, 1); // Baixo
+                aplicaDestruicao(mapa, x, y, 1, 0); // Direita
+                aplicaDestruicao(mapa, x, y, -1, 0); // Esquerda
+                aplicaDestruicao(mapa, x, y, 0, -1); // Cima
+                aplicaDestruicao(mapa, x, y, 0, 1); // Baixo
             }
         }
     }
@@ -523,15 +543,19 @@ void displayInferior(Player *jogador, Bomb bomba[])
     char displayVida[20];
     char displayBomba[20];
     char displayPontuacao[30];
+    char displayMenu[20];
 
     //Funcao sprintf() guarda o conteudo de um printf em uma string
     sprintf(displayVida, "Vidas: %d", jogador->vida);
     sprintf(displayBomba, "Bombas: %d", jogador->nBombas);
     sprintf(displayPontuacao, "Pontuacao: %d", jogador->pontuacao);
+    sprintf(displayMenu, "Menu (TAB)");
+
 
     DrawText(displayVida, 30, 525, TAMTEXTO, WHITE);
     DrawText(displayBomba, 375, 525, TAMTEXTO, WHITE);
     DrawText(displayPontuacao, 750, 525, TAMTEXTO, WHITE);
+    DrawText(displayMenu, 30, 10, 20, WHITE);
 
 }
 
