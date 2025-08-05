@@ -1,6 +1,5 @@
 #include "bomberman.h"
 
-//Aqui ele pega i<LINHAS E j<COLUNAS, e na hora de desenhar o mapa eh o contrario!?
 void leMapa(char *nome_arq, char mapa[][COLUNAS], Player *jogador, Enemy inimigo[])
 {
     Position posic;
@@ -387,7 +386,7 @@ void plantaBomba(Player *jogador, char mapa[][COLUNAS], Enemy inimigo[], Bomb bo
 }
 
 
-//Propaga a explosao em uma direcao, fazendo as alteracoes no mapa
+//Propaga a explosao em uma direcao
 void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int direcx, int direcy, Player *jogador)
 {
     for (int z = 0; z < MAXBOMBA; z++)   //Bomba com alcance de 100 pixels -> 3 pixels pra todas as direcoes (incluindo o do meio)
@@ -400,19 +399,12 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
         {
             break;    //Nao permite a propagacao apos bater em uma parede
         }
-        else if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B')
-        {
-            mapa[ny][nx] = ' ';        //Se a bomba enconstar em um objeto, quebra ele e para a propagacao
-            jogador->pontuacao += 10;
-            break;
-        }
-        else if (mapa[ny][nx] == 'K')
-        {
-            mapa[ny][nx] = 'C';   //Condicao especial para as chaves
-            jogador->pontuacao += 10;
-            break;
-        }
 
+        if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B' || mapa[ny][nx] == 'K')
+        {
+            break;
+        }
+        
         //Para a deteccao de inimigos, pra elimina-los mesmo com um pixel encostando na explosao, uso da funcao CheckCollisionRecs, do raylib
 
         Rectangle retanguloExplosao = {nx*LADO, ny*LADO, LADO, LADO}; //Retangulo da explosao: mesmos elementos do DrawRectangle()
@@ -429,7 +421,7 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
                 jogador->pontuacao += 20;
             }
         }
-        //Deteccao do prprio jogador
+        //Deteccao do proprio jogador
         Rectangle retanguloJogador = {jogador->posic.x, jogador->posic.y, LADO, LADO};
         if (CheckCollisionRecs(retanguloExplosao, retanguloJogador) == 1)
         {
@@ -446,8 +438,34 @@ void propagaExplosao(char mapa[][COLUNAS], Enemy inimigo[], int x, int y, int di
 
 }
 
+// Aplica a destruição no mapa ao final da explosão
+void AplicaDestruicao(char mapa[][COLUNAS], int x, int y, int direcx, int direcy)
+{
+    for (int z = 0; z < MAXBOMBA; z++)
+    {
+        int nx = x + (z*direcx);
+        int ny = y + (z*direcy);
 
-//Funcao para desenhar a explos�o
+        if (mapa[ny][nx] == 'W')
+        {
+            break; // A destruição para em um muro
+        }
+        
+        if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B')
+        {
+            mapa[ny][nx] = ' '; // Quebra o bloco
+            break; // E para a propagação da destruição
+        }
+        
+        if (mapa[ny][nx] == 'K')
+        {
+            mapa[ny][nx] = 'C'; // Condição especial para a chave
+            break;
+        }
+    }
+}
+
+//Funcao para desenhar a explosão no mapa e chamar a destruicao
 void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS])
 {
     for (int k = 0; k < MAXBOMBA; k++)
@@ -466,7 +484,13 @@ void desenhaExplosao(Bomb bomba[], char mapa[][COLUNAS])
 
             if (duracaoExplosao >= 0.3)
             {
-                bomba[k].estadoExplosao = 0; // Termina a explos�o
+                bomba[k].estadoExplosao = 0; // Termina a explosao
+
+                // Aplica a explosão
+                AplicaDestruicao(mapa, x, y, 1, 0); // Direita
+                AplicaDestruicao(mapa, x, y, -1, 0); // Esquerda
+                AplicaDestruicao(mapa, x, y, 0, -1); // Cima
+                AplicaDestruicao(mapa, x, y, 0, 1); // Baixo
             }
         }
     }
@@ -484,14 +508,12 @@ void desenhaPropagacao(char mapa[][COLUNAS], int x, int y, int direcx, int direc
         {
             break; //Se bate em uma parede, nao continua o desenho
         }
-        else if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B' || mapa[ny][nx] == 'K')
+        
+        DrawRectangle(nx*LADO, ny*LADO, LADO, LADO, MAGENTA);
+        
+        if (mapa[ny][nx] == 'D' || mapa[ny][nx] == 'B' || mapa[ny][nx] == 'K')
         {
-            //DrawRectangle(nx*20, ny*20, 20, 20, MAGENTA);   //Se bate em um objeto, quebra ele e para o desenho
-            break;                                              //Por algum motivo, nao funciona quando a proxima celula eh um espaco vazio
-        }
-        else
-        {
-            DrawRectangle(nx*LADO, ny*LADO, LADO, LADO, MAGENTA); //Espaco vazio continua a propagacao do desenho
+            break;                                             
         }
     }
 }
